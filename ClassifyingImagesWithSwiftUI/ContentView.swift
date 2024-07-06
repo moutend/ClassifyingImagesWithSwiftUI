@@ -5,6 +5,7 @@ struct ContentView: View {
   @State private var isShowingCamera = false
   @State private var image: UIImage?
   @State private var label = ""
+  @State private var elapsedTime: Double = 0.0
 
   var body: some View {
     VStack {
@@ -12,6 +13,10 @@ struct ContentView: View {
         Image(uiImage: image)
           .resizable()
           .scaledToFit()
+        Text("Elapsed Time: \(self.elapsedTime * 1000.0, specifier: "%.2f") ms")
+          .font(.body)
+          .bold()
+          .padding()
         Text(self.label)
           .font(.body)
           .padding()
@@ -29,7 +34,9 @@ struct ContentView: View {
           .background(Color.indigo)
       }
       .sheet(isPresented: self.$isShowingCamera) {
-        CameraView(isShowing: self.$isShowingCamera, image: self.$image, label: self.$label)
+        CameraView(
+          isShowing: self.$isShowingCamera, image: self.$image,
+          label: self.$label, elapsedTime: self.$elapsedTime)
       }
     }
   }
@@ -39,9 +46,12 @@ struct CameraView: UIViewControllerRepresentable {
   @Binding var isShowing: Bool
   @Binding var image: UIImage?
   @Binding var label: String
+  @Binding var elapsedTime: Double
 
   class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
     var parent: CameraView
+
+    var startTime: Double = 0.0
 
     let imagePredictor = ImagePredictor()
     let predictionsToShow = 3
@@ -71,6 +81,7 @@ struct CameraView: UIViewControllerRepresentable {
       self.parent.isShowing = false
 
       DispatchQueue.global(qos: .userInitiated).async {
+        self.startTime = CFAbsoluteTimeGetCurrent()
         self.classifyImage(photo)
       }
     }
@@ -88,6 +99,10 @@ struct CameraView: UIViewControllerRepresentable {
         self.parent.label = "No predictions."
         return
       }
+
+      let endTime = CFAbsoluteTimeGetCurrent()
+
+      self.parent.elapsedTime = endTime - self.startTime
 
       let formattedPredictions = formatPredictions(predictions)
       let predictionString = formattedPredictions.joined(separator: "\n")
